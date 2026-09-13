@@ -23,6 +23,7 @@ const workspaceVersion = (
 ).version;
 const skewedVersion = workspaceVersion.replace(/\d+$/, (patch) => String(Number(patch) + 1));
 const extension = '@prisma/orm-extension-pgvector';
+const publishedExtension = '@ryangarber/prisma-orm-extension-pgvector';
 const facade = '@prisma/orm-postgres';
 const targetShell = '@prisma/orm-target-postgres';
 const platform: ShellName[] = [
@@ -36,7 +37,8 @@ function pack(scratch: string, names: readonly ShellName[]): PackedShell[] {
   return names.map((name) => {
     const shell = publicShells.get(name);
     if (shell === undefined) throw new Error(`unknown shell ${name}`);
-    return packShell(join(repoRoot, shell.dir), scratch);
+    const packed = packShell(join(repoRoot, shell.dir), scratch);
+    return name === extension ? { ...packed, name: extension } : packed;
   });
 }
 
@@ -79,6 +81,11 @@ describe('an extension pack installed next to the facade it extends', () => {
       `console.log('resolved ' + subpaths.length);`,
     ].join('\n');
     expect(runInScratch(scratch, script)).toContain(`resolved ${subpaths.length}`);
+  });
+
+  it('publishes the fork under its own package name', () => {
+    const manifest: unknown = JSON.parse(readFileSync(join(installedDir, 'package.json'), 'utf8'));
+    expect(Object(manifest)).toMatchObject({ name: publishedExtension });
   });
 
   it('supports variable dimensions from the installed package', () => {
