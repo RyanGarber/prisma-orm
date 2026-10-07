@@ -40,6 +40,7 @@ import { PostgresDatabaseSchemaNode } from '../schema-ir/postgres-database-schem
 import { PostgresPolicySchemaNode } from '../schema-ir/postgres-policy-schema-node';
 import { PostgresTableSchemaNode } from '../schema-ir/postgres-table-schema-node';
 import type { SqlSchemaDiffNode } from '../schema-ir/schema-node-kinds';
+import { plannedConstraintNameRenames } from './constraint-name-renames';
 import {
   renderPostgresSuppression,
   resolveNamespaceIdForDdlSchema,
@@ -371,8 +372,8 @@ export class PostgresMigrationPlanner implements MigrationPlanner<'sql', 'postgr
       return plannerFailure([...(result.ok ? [] : result.failure), ...schemaDiff.conflicts]);
     }
 
-    const indexRenamePartition = partitionPostgresCallsByControlPolicy(
-      [...indexRenames.calls, ...checkRenames.calls],
+    const renamePartition = partitionPostgresCallsByControlPolicy(
+      [...indexRenames.calls, ...checkRenames.calls, ...plannedConstraintNameRenames(options)],
       options.contract,
     );
 
@@ -404,7 +405,7 @@ export class PostgresMigrationPlanner implements MigrationPlanner<'sql', 'postgr
     const ordered = movePolicyDropsBeforeBlockedDdl(result.value.calls, schemaDiffPartition.kept);
     const calls = [
       ...ordered.structural,
-      ...indexRenamePartition.kept,
+      ...renamePartition.kept,
       ...ordered.policyCalls,
       ...fieldEventPartition.kept,
     ];
@@ -415,7 +416,7 @@ export class PostgresMigrationPlanner implements MigrationPlanner<'sql', 'postgr
     const seenWarnings = new Set<string>();
     const warnings: SqlPlannerConflict[] = [
       ...issuePartition.suppressions,
-      ...indexRenamePartition.suppressions,
+      ...renamePartition.suppressions,
       ...schemaDiff.suppressions,
       ...schemaDiffPartition.suppressions,
       ...fieldEventPartition.suppressions,
