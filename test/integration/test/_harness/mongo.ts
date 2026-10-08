@@ -87,6 +87,8 @@ async function pushContract(connectionUri: string, contractJson: unknown): Promi
       schema,
       policy: initPolicy,
       fromContract: null,
+      origin: null,
+      statements: [],
       frameworkComponents,
       spaceId: APP_SPACE_ID,
       snapshotsImportPath: '../../snapshots',
