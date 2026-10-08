@@ -32,10 +32,10 @@ import {
   type ContractInput,
   type ContractModelBuilder,
   type DeferredIndexColumn,
-  type DeferredIndexExpression,
   type FieldStateOf,
   type ForeignKeyConstraint,
   type IdConstraint,
+  type IndexConstraint,
   isCrossSpaceHandle,
   type ModelAttributesSpec,
   normalizeRelationFieldNames,
@@ -818,10 +818,9 @@ function resolveForeignKeyNodes(
  */
 function resolveDeferredColumns(
   spec: Pick<RuntimeModelSpec, 'modelName' | 'fieldToColumn'>,
-  expression: DeferredIndexExpression,
+  fieldNames: readonly string[],
   fieldCodecIds: Readonly<Record<string, string>>,
 ): readonly DeferredIndexColumn[] {
-  const fieldNames = expression.fields.map((ref) => ref.fieldName);
   const columnNames = mapFieldNamesToColumnNames(spec.modelName, fieldNames, spec.fieldToColumn);
   return fieldNames.map((fieldName, position) => {
     const name = columnNames[position];
@@ -833,6 +832,13 @@ function resolveDeferredColumns(
     }
     return { name, codecId };
   });
+}
+
+/** The fields an index covers, in order: its own, or those of its deferred expression. */
+function coveredFieldNames(index: IndexConstraint): readonly string[] {
+  if (index.fields !== undefined) return index.fields;
+  if (index.expression === undefined || typeof index.expression === 'string') return [];
+  return index.expression.fields.map((ref) => ref.fieldName);
 }
 
 function resolveModelNode(
@@ -890,10 +896,14 @@ function resolveModelNode(
     // forbids options without a type, but a caller that suppresses the
     // compile error still reaches here, and dropping the orphaned options
     // would hide it from lowerAuthoredIndex's runtime backstop.
+    const options =
+      typeof index.options === 'function'
+        ? index.options(resolveDeferredColumns(spec, coveredFieldNames(index), fieldCodecIds))
+        : index.options;
     const method = blindCast<
       AuthoredIndexMethod,
       'the constraint type carries the union; reading the two fields separately loses the correlation'
-    >({ type: index.type, options: index.options });
+    >({ type: index.type, options });
     const carried = {
       where: index.where,
       unique: index.unique,
@@ -908,7 +918,11 @@ function resolveModelNode(
             typeof index.expression === 'string'
               ? index.expression
               : index.expression.render(
-                  resolveDeferredColumns(spec, index.expression, fieldCodecIds),
+                  resolveDeferredColumns(
+                    spec,
+                    index.expression.fields.map((ref) => ref.fieldName),
+                    fieldCodecIds,
+                  ),
                 ),
         }
       : {
