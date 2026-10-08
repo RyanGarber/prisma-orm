@@ -67,6 +67,7 @@ import {
 import type { PostgresColumnDefault } from '../types';
 import { boundSchema } from './bound-schema';
 import {
+  type AlterColumnTypeClass,
   addNotNullColumnDirect,
   alterColumnType,
   dropColumn,
@@ -388,10 +389,6 @@ export type RenameCompanionCall = RenameConstraintCall | RenameIndexCall;
 
 export class RenameTableCall extends PostgresOpFactoryCallNode {
   readonly factoryName = 'renameTable' as const;
-  // `widening` for the same reason as `RenameConstraintCall`: a rename is
-  // neither additive creation nor destructive, and the class vocabulary has no
-  // neutral middle class, so this is the class that plans under every
-  // allowance set except additive-only init.
   readonly operationClass = 'widening' as const;
   readonly schemaName: string;
   readonly oldTableName: string;
@@ -644,7 +641,7 @@ export interface AlterColumnTypeOptions {
 
 export class AlterColumnTypeCall extends PostgresOpFactoryCallNode {
   readonly factoryName = 'alterColumnType' as const;
-  readonly operationClass = 'destructive' as const;
+  readonly operationClass: AlterColumnTypeClass;
   readonly schemaName: string;
   readonly tableName: string;
   readonly columnName: string;
@@ -656,12 +653,14 @@ export class AlterColumnTypeCall extends PostgresOpFactoryCallNode {
     tableName: string,
     columnName: string,
     options: AlterColumnTypeOptions,
+    operationClass: AlterColumnTypeClass = 'destructive',
   ) {
     super();
     this.schemaName = schemaName;
     this.tableName = tableName;
     this.columnName = columnName;
     this.options = options;
+    this.operationClass = operationClass;
     this.label = `Alter type of "${tableName}"."${columnName}" to ${options.rawTargetTypeForLabel}`;
     this.freeze();
   }
@@ -674,7 +673,14 @@ export class AlterColumnTypeCall extends PostgresOpFactoryCallNode {
         { meta: { factory: 'AlterColumnTypeCall' } },
       );
     }
-    return alterColumnType(this.schemaName, this.tableName, this.columnName, this.options, lowerer);
+    return alterColumnType(
+      this.schemaName,
+      this.tableName,
+      this.columnName,
+      this.options,
+      lowerer,
+      this.operationClass,
+    );
   }
 
   renderTypeScript(): string {
@@ -685,6 +691,9 @@ export class AlterColumnTypeCall extends PostgresOpFactoryCallNode {
     opts.push(`table: ${jsonToTsSource(this.tableName)}`);
     opts.push(`column: ${jsonToTsSource(this.columnName)}`);
     opts.push(`options: ${jsonToTsSource(this.options)}`);
+    if (this.operationClass !== 'destructive') {
+      opts.push(`operationClass: ${jsonToTsSource(this.operationClass)}`);
+    }
     return `this.alterColumnType({ ${opts.join(', ')} })`;
   }
 
@@ -695,7 +704,7 @@ export class AlterColumnTypeCall extends PostgresOpFactoryCallNode {
 
 export class SetNotNullCall extends PostgresOpFactoryCallNode {
   readonly factoryName = 'setNotNull' as const;
-  readonly operationClass = 'destructive' as const;
+  readonly operationClass = 'widening' as const;
   readonly schemaName: string;
   readonly tableName: string;
   readonly columnName: string;
@@ -1201,10 +1210,6 @@ export class DropConstraintCall extends PostgresOpFactoryCallNode {
 
 export class RenameConstraintCall extends PostgresOpFactoryCallNode {
   readonly factoryName = 'renameConstraint' as const;
-  // `widening` is chosen so the rename plans under every allowance set except
-  // additive-only init — a rename is neither additive-creation nor
-  // destructive, and the class vocabulary has no neutral middle class. It is
-  // NOT that a rename widens anything; this is the accepted typology tradeoff.
   readonly operationClass = 'widening' as const;
   readonly schemaName: string;
   readonly tableName: string;
@@ -1456,10 +1461,6 @@ export class CreateIndexCall extends PostgresOpFactoryCallNode {
 
 export class RenameIndexCall extends PostgresOpFactoryCallNode {
   readonly factoryName = 'renameIndex' as const;
-  // `widening` is chosen so the rename plans under every allowance set except
-  // additive-only init — a rename is neither additive-creation nor
-  // destructive, and the class vocabulary has no neutral middle class. It is
-  // NOT that a rename widens anything; this is the accepted typology tradeoff.
   readonly operationClass = 'widening' as const;
   readonly schemaName: string;
   readonly tableName: string;
@@ -2082,10 +2083,6 @@ export class DisableRowLevelSecurityCall extends PostgresOpFactoryCallNode {
 
 export class RenamePostgresRlsPolicyCall extends PostgresOpFactoryCallNode {
   readonly factoryName = 'renameRlsPolicy' as const;
-  // `widening` is chosen so the rename plans under every allowance set except
-  // additive-only init — a rename is neither additive-creation nor
-  // destructive, and the class vocabulary has no neutral middle class. It is
-  // NOT that a rename widens anything; this is the accepted typology tradeoff.
   readonly operationClass = 'widening' as const;
   readonly schemaName: string;
   readonly tableName: string;

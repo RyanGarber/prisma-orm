@@ -126,7 +126,12 @@ export type {
   AppliedMigrationStatement,
   FieldCoordinate,
   FieldCoordinateJson,
+  MigrationAccessChange,
+  MigrationOperationSubject,
+  MigrationPlanSubjects,
   MigrationStatementJson,
+  MigrationSubject,
+  MigrationSubjectJson,
   ModelCoordinate,
   ModelCoordinateJson,
   ResolvedFieldRenameStatement,
@@ -136,6 +141,8 @@ export type {
 export {
   describeMigrationStatement,
   migrationStatementJson,
+  migrationSubjectJson,
+  migrationSubjectKey,
   modelDisplayName,
 } from '../control/migration-statements';
 export { orderIssuesByDependencies } from '../control/order-issues-by-dependencies';

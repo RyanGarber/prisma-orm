@@ -314,9 +314,6 @@ export function indexReplacementCalls(
 
 export class RenameTableCall extends SqliteOpFactoryCallNode {
   readonly factoryName = 'renameTable' as const;
-  // `widening`: a rename is neither additive creation nor destructive, and the
-  // class vocabulary has no neutral middle class, so this is the class that
-  // plans under every allowance set except additive-only init.
   readonly operationClass = 'widening' as const;
   readonly oldTableName: string;
   /** The new name: the table's contract-side identity after the rename. */
@@ -490,17 +487,26 @@ export class RecreateTableCall extends SqliteOpFactoryCallNode {
   readonly summary: string;
   readonly postchecks: readonly RecreatePostcheck[];
   readonly label: string;
+  /**
+   * The columns whose values the copy can change, because their type changes. The planner reads
+   * them to name what the recreate loses; they never reach the operation or `migration.ts`.
+   */
+  readonly lossyColumns: readonly string[];
 
-  constructor(args: {
-    tableName: string;
-    contractTable: SqliteTableSpec;
-    schemaColumnNames: readonly string[];
-    indexes: readonly SqliteIndexSpec[];
-    summary: string;
-    postchecks: readonly RecreatePostcheck[];
-    operationClass: MigrationOperationClass;
-  }) {
+  constructor(
+    args: {
+      tableName: string;
+      contractTable: SqliteTableSpec;
+      schemaColumnNames: readonly string[];
+      indexes: readonly SqliteIndexSpec[];
+      summary: string;
+      postchecks: readonly RecreatePostcheck[];
+      operationClass: MigrationOperationClass;
+    },
+    lossyColumns: readonly string[] = [],
+  ) {
     super();
+    this.lossyColumns = Object.freeze([...lossyColumns]);
     this.tableName = args.tableName;
     this.contractTable = args.contractTable;
     this.schemaColumnNames = args.schemaColumnNames;

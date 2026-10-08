@@ -53,6 +53,7 @@ import {
   SetDefaultCall,
   SetNotNullCall,
 } from './op-factory-call';
+import type { AlterColumnTypeClass } from './operations/columns';
 import type { RenamableConstraintKind } from './operations/constraints';
 import { type DataTransformOptions, dataTransform } from './operations/data-transform';
 import { installExtension } from './operations/dependencies';
@@ -510,12 +511,14 @@ export abstract class PostgresMigration<
     readonly table: string;
     readonly column: string;
     readonly options: AlterColumnTypeOptions;
+    readonly operationClass?: AlterColumnTypeClass;
   }): Promise<SqlMigrationPlanOperation<PostgresPlanTargetDetails>> {
     return new AlterColumnTypeCall(
       options.schema,
       options.table,
       options.column,
       options.options,
+      options.operationClass,
     ).toOp(this.controlAdapterFor('alterColumnType'));
   }
 
